@@ -250,17 +250,33 @@
 
       // ---- document protocol ----
 
+      let lastSentText = null
+      let lastSentVersion = -1
+
       function sendEdit() {
-        if (!doc || doc.readOnly) return
+        if (!doc || doc.readOnly) return Promise.resolve()
         const baseVersion = doc.version
         const text = code.value
+        if (text === lastSentText && baseVersion === lastSentVersion) {
+          return Promise.resolve() // already applied; never resend on flush
+        }
         return window.orca.document
           .applyEdit({ baseVersion, content: { kind: 'text', text } })
-          .catch((err) => {
-            // A conflict means the file changed outside; the next onDidChange carries the new text.
-            if (err && err.code === 'conflict') return
-            throw err
-          })
+          .then(
+            () => {
+              lastSentText = text
+              lastSentVersion = baseVersion
+            },
+            (err) => {
+              // Any rejection (conflict shapes vary): adopt the fresher document instead of
+              // blocking the caller — a flush must never fail the save.
+              return window.orca.document.get().then((fresh) => {
+                doc = fresh
+                lastSentText = textOf(fresh)
+                lastSentVersion = fresh.version
+              })
+            }
+          )
       }
 
       function queueEdit() {
@@ -276,6 +292,10 @@
         const hadPending = pendingEdit
         const sameText = textOf(next) === code.value
         doc = next
+        if (next.version > lastSentVersion) {
+          lastSentText = textOf(next)
+          lastSentVersion = next.version
+        }
         code.readOnly = !!next.readOnly
         if (!sameText && !hadPending) {
           code.value = textOf(next)
