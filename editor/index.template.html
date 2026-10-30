@@ -1,0 +1,381 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Mermaid</title>
+    <script src="mermaid.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: var(--orca-font-family, ui-sans-serif, system-ui, sans-serif);
+        background: var(--orca-background, Canvas);
+        color: var(--orca-foreground, CanvasText);
+      }
+      #bar {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+        padding: 6px 10px;
+        border-bottom: 1px solid color-mix(in oklab, var(--orca-foreground, currentColor) 15%, transparent);
+      }
+      #bar .grow {
+        flex: 1;
+      }
+      #bar span.hint {
+        opacity: 0.65;
+        font-size: 12px;
+      }
+      button.mode {
+        font: inherit;
+        font-size: 12px;
+        padding: 3px 10px;
+        border-radius: 6px;
+        border: 1px solid color-mix(in oklab, var(--orca-foreground, currentColor) 25%, transparent);
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+      button.mode[aria-pressed="true"] {
+        background: color-mix(in oklab, var(--orca-primary, #57ab5a) 30%, transparent);
+        border-color: var(--orca-primary, #57ab5a);
+      }
+      #main {
+        height: calc(100% - 37px);
+        display: flex;
+      }
+      #code {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        resize: none;
+        padding: 10px 12px;
+        font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        background: transparent;
+        color: inherit;
+        outline: none;
+        tab-size: 2;
+      }
+      #splitter {
+        width: 4px;
+        cursor: col-resize;
+        background: color-mix(in oklab, var(--orca-foreground, currentColor) 15%, transparent);
+      }
+      #chartwrap {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        position: relative;
+      }
+      #chart {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding: 10px;
+        overflow: hidden;
+        cursor: grab;
+      }
+      #chart.dragging {
+        cursor: grabbing;
+      }
+      #chart svg {
+        max-width: none;
+        transition: none;
+      }
+      #error {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        display: none;
+        background: color-mix(in oklab, #e5534b 15%, var(--orca-background, white));
+        border: 1px solid #e5534b;
+        color: inherit;
+        white-space: pre-wrap;
+      }
+      #placeholder {
+        opacity: 0.5;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="bar">
+      <button class="mode" id="m-chart" aria-pressed="true">Chart</button>
+      <button class="mode" id="m-split" aria-pressed="false">Split</button>
+      <button class="mode" id="m-code" aria-pressed="false">Source</button>
+      <div class="grow"></div>
+      <span class="hint" id="hint"></span>
+    </div>
+    <div id="main">
+      <textarea id="code" spellcheck="false" wrap="off"></textarea>
+      <div id="splitter" hidden></div>
+      <div id="chartwrap" hidden>
+        <div id="chart"><span id="placeholder">Diagram renders here</span></div>
+        <div id="error"></div>
+      </div>
+    </div>
+    <script>
+      'use strict'
+      const code = document.getElementById('code')
+      const chart = document.getElementById('chart')
+      const chartwrap = document.getElementById('chartwrap')
+      const splitter = document.getElementById('splitter')
+      const error = document.getElementById('error')
+      const hint = document.getElementById('hint')
+      const modes = {
+        chart: document.getElementById('m-chart'),
+        split: document.getElementById('m-split'),
+        code: document.getElementById('m-code')
+      }
+
+      let mode = 'chart'
+      let doc = null // { version, readOnly, content: { text } }
+      let pendingEdit = false
+      let renderTimer = 0
+      let renderSeq = 0
+      let zoom = 1
+      let panX = 0
+      let panY = 0
+      let applyTimer = 0
+
+      const SAVE_DEBOUNCE_MS = 400
+      const RENDER_DEBOUNCE_MS = 250
+
+      function textOf(d) {
+        return d && d.content && d.content.kind === 'text' ? d.content.text : ''
+      }
+
+      function setMode(next) {
+        mode = next
+        for (const [name, button] of Object.entries(modes)) {
+          button.setAttribute('aria-pressed', String(name === next))
+        }
+        const showChart = next !== 'code'
+        const showCode = next !== 'chart'
+        code.hidden = !showCode
+        splitter.hidden = next !== 'split'
+        chartwrap.hidden = !showChart
+        code.style.flex = next === 'split' ? '0 0 46%' : '1'
+        if (showChart) scheduleRender(0)
+      }
+
+      function scheduleRender(delay) {
+        clearTimeout(renderTimer)
+        renderTimer = setTimeout(render, delay)
+      }
+
+      async function render() {
+        const source = code.value
+        const seq = ++renderSeq
+        if (!source.trim()) {
+          chart.textContent = ''
+          const ph = document.createElement('span')
+          ph.id = 'placeholder'
+          ph.textContent = 'Diagram renders here'
+          chart.appendChild(ph)
+          error.style.display = 'none'
+          return
+        }
+        try {
+          const { svg } = await window.mermaid.render('mmd-' + seq, source)
+          if (seq !== renderSeq) return
+          chart.textContent = ''
+          const host = document.createElement('div')
+          host.innerHTML = svg
+          const el = host.firstElementChild
+          if (el) chart.appendChild(el)
+          error.style.display = 'none'
+          applyTransform()
+        } catch (err) {
+          if (seq !== renderSeq) return
+          error.textContent = String((err && err.message) || err)
+          error.style.display = 'block'
+        }
+      }
+
+      function applyTransform() {
+        const svg = chart.querySelector('svg')
+        if (!svg) return
+        svg.style.transformOrigin = 'center center'
+        svg.style.transform = 'translate(' + panX + 'px,' + panY + 'px) scale(' + zoom + ')'
+        hint.textContent = Math.round(zoom * 100) + '%'
+      }
+
+      function resetView() {
+        zoom = 1
+        panX = 0
+        panY = 0
+        applyTransform()
+      }
+
+      // Pan and zoom on the chart surface only; ctrl/meta+wheel or plain wheel zooms,
+      // drag pans. Modifier-free wheel still zooms because the chart has nothing to scroll.
+      chart.addEventListener('wheel', (e) => {
+        e.preventDefault()
+        const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+        zoom = Math.min(8, Math.max(0.1, zoom * factor))
+        applyTransform()
+      })
+      chart.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return
+        e.preventDefault()
+        chart.classList.add('dragging')
+        let lastX = e.clientX
+        let lastY = e.clientY
+        const move = (ev) => {
+          panX += ev.clientX - lastX
+          panY += ev.clientY - lastY
+          lastX = ev.clientX
+          lastY = ev.clientY
+          applyTransform()
+        }
+        const up = () => {
+          chart.classList.remove('dragging')
+          window.removeEventListener('mousemove', move)
+          window.removeEventListener('mouseup', up)
+        }
+        window.addEventListener('mousemove', move)
+        window.addEventListener('mouseup', up)
+      })
+      chart.addEventListener('dblclick', resetView)
+
+      // ---- document protocol ----
+
+      let lastSentText = null
+      let lastSentVersion = -1
+
+      function sendEdit() {
+        if (!doc || doc.readOnly) return Promise.resolve()
+        const baseVersion = doc.version
+        const text = code.value
+        if (text === lastSentText && baseVersion === lastSentVersion) {
+          return Promise.resolve() // already applied; never resend on flush
+        }
+        return window.orca.document
+          .applyEdit({ baseVersion, content: { kind: 'text', text } })
+          .then(
+            () => {
+              lastSentText = text
+              lastSentVersion = baseVersion
+            },
+            (err) => {
+              // Any rejection (conflict shapes vary): adopt the fresher document instead of
+              // blocking the caller — a flush must never fail the save.
+              return window.orca.document.get().then((fresh) => {
+                doc = fresh
+                lastSentText = textOf(fresh)
+                lastSentVersion = fresh.version
+              })
+            }
+          )
+      }
+
+      function queueEdit() {
+        pendingEdit = true
+        clearTimeout(applyTimer)
+        applyTimer = setTimeout(() => {
+          pendingEdit = false
+          void sendEdit()
+        }, SAVE_DEBOUNCE_MS)
+      }
+
+      function adoptDocument(next) {
+        const hadPending = pendingEdit
+        const sameText = textOf(next) === code.value
+        doc = next
+        if (next.version > lastSentVersion) {
+          lastSentText = textOf(next)
+          lastSentVersion = next.version
+        }
+        code.readOnly = !!next.readOnly
+        if (!sameText && !hadPending) {
+          code.value = textOf(next)
+          resetView()
+          scheduleRender(0)
+        } else if (!sameText && hadPending) {
+          // Our own edit came back as the new document; adopt the version, keep the cursor.
+          code.value = textOf(next)
+          scheduleRender(0)
+        }
+      }
+
+      code.addEventListener('input', () => {
+        queueEdit()
+        scheduleRender(RENDER_DEBOUNCE_MS)
+      })
+
+      // Tab inserts two spaces in the source editor instead of leaving the frame.
+      code.addEventListener('keydown', (e) => {
+        if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault()
+          const start = code.selectionStart
+          const end = code.selectionEnd
+          code.setRangeText('  ', start, end, 'end')
+          code.dispatchEvent(new Event('input'))
+        }
+      })
+
+      for (const [name, button] of Object.entries(modes)) {
+        button.addEventListener('click', () => setMode(name))
+      }
+
+      // Splitter drag.
+      splitter.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        const move = (ev) => {
+          const rect = document.getElementById('main').getBoundingClientRect()
+          const pct = Math.min(80, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100))
+          code.style.flex = '0 0 ' + pct + '%'
+        }
+        const up = () => {
+          window.removeEventListener('mousemove', move)
+          window.removeEventListener('mouseup', up)
+        }
+        window.addEventListener('mousemove', move)
+        window.addEventListener('mouseup', up)
+      })
+
+      // ---- boot ----
+
+      if (!window.mermaid) {
+        error.textContent = 'Mermaid runtime failed to load in this frame.'
+        error.style.display = 'block'
+      } else {
+        window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base' })
+      }
+      // 'base' + CSS variables keeps the diagram on Orca's palette in both color schemes.
+      const style = document.createElement('style')
+      style.textContent =
+        ':root{--orca-background:#fff}html.dark:root{--orca-background:#0d1117}' +
+        '.mermaid{--fontFamily:var(--orca-font-family,ui-sans-serif,system-ui);' +
+        '--background:var(--orca-background,transparent)}'
+      document.head.appendChild(style)
+
+      async function boot() {
+        doc = await window.orca.document.get()
+        code.value = textOf(doc)
+        code.readOnly = !!doc.readOnly
+        setMode(code.value.includes('\n') ? 'chart' : 'chart')
+        scheduleRender(0)
+        window.orca.document.onDidChange(adoptDocument)
+        window.orca.on('editor.flush', () => {
+          clearTimeout(applyTimer)
+          pendingEdit = false
+          return sendEdit() || Promise.resolve()
+        })
+      }
+
+      boot()
+    </script>
+  </body>
+</html>
