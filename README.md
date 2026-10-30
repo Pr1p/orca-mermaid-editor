@@ -13,22 +13,36 @@ rendering, built on Orca's `customEditors` contribution point.
 
 Edits debounce into Orca's document protocol (`applyEdit` against the document
 version, so external changes surface as conflicts instead of silent clobbers),
-and `editor.flush` delivers any pending edit before a save. The palette follows
-Orca's theme through the `--orca-*` panel tokens in both light and dark.
+and `editor.flush` delivers any pending edit before a save. Orca keeps the
+buffer, dirty state, saving and remote files; the frame only ever sees the
+document. The palette follows Orca's theme through the `--orca-*` panel tokens in
+both light and dark.
 
-Mermaid 11 is bundled; the editor frame never reaches the network.
+Mermaid 11.4.1 is bundled inline (plugin frames allow inline scripts only, so the
+editor works offline and never reaches the network).
 
 ## Install
 
-Development folder:
+Settings → Plugins → **Add plugin** → **From a Git URL**, paste:
 
 ```
-orca plugin dev load <checkout>
+https://github.com/Pr1p/orca-mermaid-editor#master
 ```
 
-Or Settings → Plugins → Add plugin → From a folder…, then review & enable.
+Then **Review & enable**. Or install a local checkout with
+`orca plugin dev load <checkout>` / **From a folder…**.
 
 Requires Orca 1.4.245 or later.
+
+## Using it on `.mmd` files
+
+Orca treats `.mmd`/`.mermaid` as a core file type, so plugin editors for it are
+offered in the tab's view toggle rather than taking over the file on open: open
+the file, then choose **Mermaid** next to **Source** / **Diagram**.
+
+**Saving**: edits go into Orca's buffer immediately (the tab shows its dirty
+dot). Press <kbd>Ctrl/⌘+S</kbd> inside the editor to write to disk, or turn on
+Settings → General → *Auto Save Files*.
 
 ## License
 
