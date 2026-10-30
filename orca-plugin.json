@@ -1,0 +1,22 @@
+{
+  "manifestVersion": 2,
+  "execution": "sandboxed-ui",
+  "publisher": "pr1p",
+  "id": "mermaid-editor",
+  "name": "Mermaid Editor",
+  "version": "0.1.0",
+  "description": "Editable Mermaid diagrams with live rendering: chart, split, and source views.",
+  "engines": { "orca": ">=1.4.245" },
+  "contributes": {
+    "customEditors": [
+      {
+        "id": "mermaid",
+        "title": "Diagram",
+        "extensions": [".mmd", ".mermaid"],
+        "entry": "editor/index.html",
+        "priority": "default",
+        "contentKind": "text"
+      }
+    ]
+  }
+}
