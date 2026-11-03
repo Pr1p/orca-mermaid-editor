@@ -4,6 +4,16 @@ An [Orca](https://github.com/stablyai/orca) plugin that renders and edits
 [Mermaid](https://mermaid.js.org) diagrams (`.mmd` / `.mermaid` files) with live
 rendering, built on Orca's `customEditors` contribution point.
 
+## Diagram types
+
+Built on a trimmed mermaid v11.4.1 bundle (~1.2MB inline, sized for the
+community catalog's review gate). Included: flowchart, sequence, class,
+state, ER, gantt, git graph, pie. Excluded long-tail types (architecture,
+block, c4, kanban, mindmap, sankey, packet, xychart, quadrant, requirement,
+journey, info, timeline, radiation) and KaTeX math raise a clear
+"not included in this build" error instead of failing silently. To rebuild
+the bundle with a different selection, see `build-trim/` and `build.sh`.
+
 ## Views
 
 - **Chart** — the rendered diagram, with wheel zoom, drag panning, and

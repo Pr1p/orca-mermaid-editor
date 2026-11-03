@@ -4,7 +4,7 @@
   "publisher": "pr1p",
   "id": "mermaid-editor",
   "name": "Mermaid Editor",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Editable Mermaid diagrams with live rendering: chart, split, and source views. Works with the Mermaid view toggle on .mmd files.",
   "engines": {
     "orca": ">=1.4.245"
