@@ -4,6 +4,15 @@ An [Orca](https://github.com/stablyai/orca) plugin that renders and edits
 [Mermaid](https://mermaid.js.org) diagrams (`.mmd` / `.mermaid` files) with live
 rendering, built on Orca's `customEditors` contribution point.
 
+## Third-party code
+
+`editor/index.html` embeds a bundled, trimmed build of
+[mermaid](https://github.com/mermaid-js/mermaid) 11.4.1, produced by
+`build-trim/` from the versions pinned in `build-trim/package-lock.json` and
+inlined by `build.sh` (plugin frames allow inline scripts only). Licenses and
+provenance are in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt). No
+minified output is committed without the build inputs that produce it.
+
 ## Diagram types
 
 Built on a trimmed mermaid v11.4.1 bundle (~1.2MB inline, sized for the

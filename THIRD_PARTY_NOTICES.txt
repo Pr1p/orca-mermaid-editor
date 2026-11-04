@@ -1,0 +1,52 @@
+Third-party notices for Orca Mermaid Editor
+===========================================
+
+editor/index.html embeds a bundled build of the following packages. The build
+is reproducible from source in this repository: `build-trim/build-trimmed.mjs`
+(inputs and versions pinned by `build-trim/package-lock.json`), run through
+`build.sh`. No third-party source file is modified or hidden; the bundle is
+minified only to fit the plugin frame's inline-script requirement.
+
+mermaid 11.4.1
+-------------
+License: MIT
+Source: https://github.com/mermaid-js/mermaid (npm package `mermaid@11.4.1`)
+Copyright (c) 2014-2022 Knut Sveidqvist and contributors
+
+The build excludes several long-tail diagram types and KaTeX; see
+`build-trim/build-trimmed.mjs` for the exclusion list and `build.sh` for how the
+bundle is inlined.
+
+esbuild 0.28.2 (build tool, not shipped)
+---------------------------------------
+License: MIT
+Source: https://github.com/evanw/esbuild
+
+The bundled output also contains code from mermaid's transitive dependencies
+as resolved by the pinned lockfile above (for example dagre, d3 modules,
+lodash modules, stylis, khroma, cytoscape), each under its own MIT license.
+Their exact versions are recorded in `build-trim/package-lock.json`.
+
+Mermaid's own license text
+--------------------------
+MIT License
+
+Copyright (c) 2014 - 2022 Knut Sveidqvist
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
